@@ -1,0 +1,64 @@
+#!/bin/bash
+
+build_containers=false
+deploy_containers=false
+
+print_usage() {
+    echo " "
+    echo "Usage:"
+    echo "  prepare_fedn [options]"
+    echo ""
+    echo "Options:"
+    echo "  -h      show brief help"
+    echo "  -b      build fedn containers"
+    echo "  -d      deploy fedn network"
+    echo ""
+}
+
+while getopts 'bdh' flag; do
+    case "${flag}" in
+        b) build_containers=true ;;
+        d) deploy_containers=true ;;
+        h) print_usage
+            exit 0 ;;
+        *) print_usage
+            exit 1 ;;
+    esac
+done
+
+# build containers if requested
+if [ "$build_containers" = true ] ; then
+    # prepare build directory
+    if test -d build; then
+        rm -rf build
+    fi
+    mkdir build && mkdir build/containers
+
+    # build containers
+    apptainer build build/containers/fedn_minio.sif containers/fedn_minio.def
+    apptainer build build/containers/fedn_mongo.sif containers/fedn_mongo.def
+    apptainer build build/containers/fedn_mongo-express.sif containers/fedn_mongo-express.def
+    apptainer build --build-arg FEDN_PATH=modules/fedn --build-arg CONF_PATH=config/fedn_config build/containers/fedn.sif containers/fedn.def
+fi
+
+# deploy containers if requested
+if [ "$deploy_containers" = true ] ; then
+    
+    # deploy common fedn services like mongodb, minio etc.
+    apptainer instance start build/containers/fedn_minio.sif minio
+    apptainer instance start build/containers/fedn_mongo.sif mongo
+    apptainer instance start build/containers/fedn_mongo-express.sif mongo-express
+    
+    # deploy a reducer to act as dashboard
+    apptainer instance start build/containers/fedn.sif dashboard
+    apptainer exec instance://dashboard fedn run dashboard -n reducer --init=/app/config/settings-reducer.yaml &
+    
+    # deploy a combiner for model aggregations
+    apptainer instance start build/containers/fedn.sif combiner
+    apptainer exec instance://combiner fedn run combiner --init=/app/config/settings-combiner.yaml &
+    
+    # deploy the api server
+    apptainer instance start build/containers/fedn.sif api-server
+    apptainer exec instance://api-server python fedn/fedn/network/api/server.py &
+    # apptainer exec build/containers/fedn.sif fedn run client --init=/app/config/settings-client.yaml &
+fi

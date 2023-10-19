@@ -1,0 +1,3 @@
+[submodule "modules/fedn"]
+	path = modules/fedn
+	url = https://github.com/scaleoutsystems/fedn.git

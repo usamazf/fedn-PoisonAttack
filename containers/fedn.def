@@ -1,0 +1,41 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
+
+%arguments
+    FEDN_PATH=modules/fedn
+    CONF_PATH=config/fedn_config
+
+%environment
+    GET_HOSTS_FROM=dns
+    PYTHONUNBUFFERED=0
+    USER=test
+    PROJECT=project
+    FLASK_DEBUG=1
+    STATESTORE_CONFIG=/app/config/settings-reducer.yaml
+    MODELSTORAGE_CONFIG=/app/config/settings-reducer.yaml
+
+%files
+    {{FEDN_PATH}}/fedn /app/fedn
+    {{CONF_PATH}}/settings-combiner.yaml.template /app/config/settings-combiner.yaml
+    {{CONF_PATH}}/settings-reducer.yaml.template /app/config/settings-reducer.yaml
+    {{CONF_PATH}}/settings-client.yaml.template /app/config/settings-client.yaml
+    # ../requirements /app/{{CONF_PATH}}/requirements.txt
+
+%post
+    # Setup environment
+    apt-get update && apt-get install -y gcc
+    mkdir -p /app \
+    && mkdir -p /app/client \
+    && mkdir -p /app/certs \
+    && mkdir -p /app/client/package \
+    && mkdir -p /app/certs
+
+    # Install fedn requirements
+    export "PATH=/opt/conda/bin:$PATH"
+    conda install -y -c conda-forge pyyaml
+    conda install -y pip
+    pip install --no-cache-dir -e /app/fedn
+    if [ -f /app/config/requirements.txt ]; then
+        pip install --no-cache-dir -r /app/requirements.txt;
+    fi
+
