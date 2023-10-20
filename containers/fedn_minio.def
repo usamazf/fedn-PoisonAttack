@@ -6,11 +6,11 @@ From: minio/minio:14128-5ee91dc
     CONS_ADDR=localhost:9001
 
 %environment
-    GET_HOSTS_FROM=dns
-    MINIO_HOST=minio
-    MINIO_PORT=9000
-    MINIO_ROOT_USER=fedn_admin
-    MINIO_ROOT_PASSWORD=password
+    export GET_HOSTS_FROM=dns
+    export MINIO_HOST=minio
+    export MINIO_PORT=9000
+    export MINIO_ROOT_USER=fedn_admin
+    export MINIO_ROOT_PASSWORD=password
 
 %startscript
     minio server {{DATA_PATH}} --console-address {{CONS_ADDR}}

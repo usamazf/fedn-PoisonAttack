@@ -6,13 +6,13 @@ From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
     CONF_PATH=config/fedn_config
 
 %environment
-    GET_HOSTS_FROM=dns
-    PYTHONUNBUFFERED=0
-    USER=test
-    PROJECT=project
-    FLASK_DEBUG=1
-    STATESTORE_CONFIG=/app/config/settings-reducer.yaml
-    MODELSTORAGE_CONFIG=/app/config/settings-reducer.yaml
+    export GET_HOSTS_FROM=dns
+    export PYTHONUNBUFFERED=0
+    export USER=test
+    export PROJECT=project
+    export FLASK_DEBUG=1
+    export STATESTORE_CONFIG=/app/config/settings-reducer.yaml
+    export MODELSTORAGE_CONFIG=/app/config/settings-reducer.yaml
 
 %files
     {{FEDN_PATH}}/fedn /app/fedn
@@ -38,4 +38,3 @@ From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
     if [ -f /app/config/requirements.txt ]; then
         pip install --no-cache-dir -r /app/requirements.txt;
     fi
-

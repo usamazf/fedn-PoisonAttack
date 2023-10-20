@@ -6,8 +6,8 @@ From: mongo:5.0.2
     DB_PATH=~/minio/data
 
 %environment
-    MONGO_INITDB_ROOT_USERNAME=fedn_admin
-    MONGO_INITDB_ROOT_PASSWORD=password
+    export MONGO_INITDB_ROOT_USERNAME=fedn_admin
+    export MONGO_INITDB_ROOT_PASSWORD=password
 
 %startscript
     mongod --dbpath {{DB_PATH}} --port {{DB_PORT}}
