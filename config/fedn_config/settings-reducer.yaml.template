@@ -1,4 +1,4 @@
-network_id: fedn-network
+network_id: localhost
 controller:
   host: localhost
   port: 8092

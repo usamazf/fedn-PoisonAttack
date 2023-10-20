@@ -1,4 +1,4 @@
-network_id: fedn-network
+network_id: localhost
 discover_host: localhost
 discover_port: 8092
 
