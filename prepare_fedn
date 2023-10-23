@@ -1,12 +1,21 @@
 #!/bin/bash
 
+# build / deploy flags
 build_containers=false
 deploy_containers=false
 clean_deploy=false
+
+# core paths of fedn library and configurations
+FEDN_PATH=modules/fedn
+CONF_PATH=config/fedn_config
+
+# secondary paths to hold container data
 minio_data_path=~/fedn_data/minio_data
 mongo_data_path=~/fedn_data/mongo_data
 mexpr_data_path=~/fedn_data/mexpr_data
+tm_overlay_path=~/fedn_data/overalys
 
+# check requested user options
 print_usage() {
     echo " "
     echo "Usage:"
@@ -44,14 +53,15 @@ if [ "$build_containers" = true ]; then
     apptainer build build/containers/fedn_minio.sif containers/fedn_minio.def
     apptainer build build/containers/fedn_mongo.sif containers/fedn_mongo.def
     apptainer build build/containers/fedn_mongo-express.sif containers/fedn_mongo-express.def
-    apptainer build --build-arg FEDN_PATH=modules/fedn --build-arg CONF_PATH=config/fedn_config build/containers/fedn.sif containers/fedn.def
+    apptainer build --build-arg FEDN_PATH=$FEDN_PATH --build-arg CONF_PATH=$CONF_PATH build/containers/fedn.sif containers/fedn.def
 fi
 
 # deploy containers if requested
 if [ "$deploy_containers" = true ]; then
+    # clean up if fresh deployment requested
     if [ "$clean_deploy" = true ]; then
-        rm -rf "$minio_data_path" "$mongo_data_path" "$mexpr_data_path"
-        mkdir  "$minio_data_path" "$mongo_data_path" "$mexpr_data_path"
+        rm -rf "$minio_data_path" "$mongo_data_path" "$mexpr_data_path" "$tm_overlay_path"
+        mkdir -p "$minio_data_path" "$mongo_data_path" "$mongo_data_path/db" "$mexpr_data_path" "$tm_overlay_path"
     fi
 
     # deploy common fedn services like mongodb, minio etc.
@@ -60,17 +70,22 @@ if [ "$deploy_containers" = true ]; then
     apptainer instance start --bind $mexpr_data_path:/data build/containers/fedn_mongo-express.sif mongo-express
     
     # deploy a reducer to act as dashboard
-    apptainer instance start build/containers/fedn.sif dashboard
-    apptainer exec --pwd /app instance://dashboard fedn run dashboard -n reducer --init=/app/config/settings-reducer.yaml &
-    
-    # deploy a combiner for model aggregations
-    apptainer instance start build/containers/fedn.sif combiner
-    apptainer exec --pwd /app instance://combiner fedn run combiner --init=/app/config/settings-combiner.yaml &
+    apptainer overlay create --sparse --size 1024 $tm_overlay_path/dashboard_overlay.img
+    apptainer instance start  --overlay $tm_overlay_path/dashboard_overlay.img build/containers/fedn.sif dashboard
+    apptainer exec --pwd /app --overlay $tm_overlay_path/dashboard_overlay.img instance://dashboard fedn run dashboard -n reducer --init=/app/config/settings-reducer.yaml &
     
     # deploy the api server
-    apptainer instance start build/containers/fedn.sif api-server
-    apptainer exec --pwd /app instance://api-server python fedn/fedn/network/api/server.py &
+    apptainer overlay create --sparse --size 1024 $tm_overlay_path/api_overlay.img
+    apptainer instance start  --overlay $tm_overlay_path/api_overlay.img build/containers/fedn.sif api-server
+    apptainer exec --pwd /app --overlay $tm_overlay_path/api_overlay.img instance://api-server python fedn/fedn/network/api/server.py &
+    
+    # deploy a combiner for model aggregations
+    apptainer overlay create --sparse --size 1024 $tm_overlay_path/combiner_overlay.img
+    apptainer instance start  --overlay $tm_overlay_path/combiner_overlay.img build/containers/fedn.sif combiner
+    apptainer exec --pwd /app --overlay $tm_overlay_path/combiner_overlay.img instance://combiner fedn run combiner --init=/app/config/settings-combiner.yaml &
 
     # deploy some clients
-    # apptainer exec build/containers/fedn.sif fedn run client --init=/app/config/settings-client.yaml &
+    apptainer overlay create --sparse --size 1024 $tm_overlay_path/client_overlay.img
+    apptainer instance start  --overlay $tm_overlay_path/client_overlay.img build/containers/fedn.sif client
+    apptainer exec --pwd /app --overlay $tm_overlay_path/client_overlay.img instance://client fedn run client --init=/app/config/settings-client.yaml &
 fi
