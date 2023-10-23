@@ -20,7 +20,7 @@ print_usage() {
     echo ""
 }
 
-while getopts 'bdh' flag; do
+while getopts 'bdhc' flag; do
     case "${flag}" in
         b) build_containers=true ;;
         d) deploy_containers=true ;;
