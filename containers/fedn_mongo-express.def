@@ -12,3 +12,7 @@ From: mongo-express:latest
 %startscript
     cd /node_modules/mongo-express
     /sbin/tini -- /docker-entrypoint.sh mongo-express
+
+%runscript
+    cd /node_modules/mongo-express
+    /sbin/tini -- /docker-entrypoint.sh mongo-express

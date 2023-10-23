@@ -3,11 +3,13 @@ From: mongo:5.0.2
 
 %arguments
     DB_PORT=6534
-    DB_PATH=~/minio/data
 
 %environment
     export MONGO_INITDB_ROOT_USERNAME=fedn_admin
     export MONGO_INITDB_ROOT_PASSWORD=password
 
 %startscript
-    mongod --dbpath {{DB_PATH}} --port {{DB_PORT}}
+    docker-entrypoint.sh mongod --port {{DB_PORT}}
+
+%runscript
+    docker-entrypoint.sh mongod --port {{DB_PORT}}
