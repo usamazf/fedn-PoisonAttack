@@ -10,7 +10,7 @@ statestore:
     username: fedn_admin
     password: password
     host: localhost
-    port: 27017
+    port: 6534
 
 storage:
   storage_type: S3
