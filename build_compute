@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+
+# initialize venv
+python -m venv .mnist-pytorch
+
+# install pip deps
+.mnist-pytorch/bin/pip install --upgrade pip
+.mnist-pytorch/bin/pip install -e modules/fedn/fedn
+.mnist-pytorch/bin/pip install -r config/fedn_config/requirements.txt
+
+# fetch the mnist dataset
+src/utils/get_data
+
+# split the mnist dataset
+src/utils/split_data
+
+# initialize seed model
+client/entrypoint init_seed
+
+# create the compute package
+tar -czvf temp/package.tgz client
