@@ -87,6 +87,7 @@ tm_overlay_path="$fedn_data_path/overalys"
 
 # build containers if requested
 if [ "$build_containers" = true ]; then
+    echo "Buidling containers ..."
     # prepare build directory
     if test -d $fedn_build_path; then
         rm -rf $fedn_build_path
@@ -104,15 +105,17 @@ fi
 if [ "$deploy_containers" = true ]; then
     # clean up if fresh deployment requested
     if [ "$clean_deploy" = true ]; then
+        echo "Cleaning up ..."
         rm -rf "$minio_data_path" "$mongo_data_path" "$mexpr_data_path" "$tm_overlay_path"
-        mkdir -p "$minio_data_path" "$mongo_data_path" "$mongo_data_path/db" "$mexpr_data_path" "$tm_overlay_path"
+        mkdir -p "$minio_data_path" && mkdir -p "$mongo_data_path" && mkdir -p "$mongo_data_path/db" && mkdir -p "$mexpr_data_path" && mkdir -p "$tm_overlay_path"
         # create fresh overlays for a clean deployment
         apptainer overlay create --sparse --size 1024 $tm_overlay_path/dashboard_overlay.img
         apptainer overlay create --sparse --size 1024 $tm_overlay_path/api_overlay.img
         apptainer overlay create --sparse --size 1024 $tm_overlay_path/combiner_overlay.img
         apptainer overlay create --sparse --size 1024 $tm_overlay_path/client_overlay.img
     fi
-
+    
+    echo "Deploying containers ..."
     # deploy common fedn services like mongodb, minio etc.
     apptainer instance start --bind $minio_data_path:/data $fedn_build_path/fedn_minio.sif minio
     apptainer instance start --bind $mongo_data_path:/data $fedn_build_path/fedn_mongo.sif mongo
@@ -133,5 +136,5 @@ if [ "$deploy_containers" = true ]; then
     # deploy some (2) clients
     apptainer instance start  --overlay $tm_overlay_path/client_overlay.img $fedn_build_path/fedn.sif client
     apptainer exec --pwd /app --overlay $tm_overlay_path/client_overlay.img --bind $client_data_path:/var/data instance://client fedn run client --init=/app/config/settings-client.yaml &
-    apptainer exec --pwd /app --overlay $tm_overlay_path/client_overlay.img --bind $client_data_path:/var/data instance://client fedn run client --init=/app/config/settings-client.yaml &
+    # apptainer exec --pwd /app --overlay $tm_overlay_path/client_overlay.img --bind $client_data_path:/var/data instance://client fedn run client --init=/app/config/settings-client.yaml &
 fi

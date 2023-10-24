@@ -112,4 +112,4 @@ if [ "$prepare_seed" = true ]; then
 fi
 
 # create the compute package
-tar -czvf $comp_out_path $comp_pack_path
+tar -C src/ -czvf $comp_out_path compute --transform s/compute/client/
