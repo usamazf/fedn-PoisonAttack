@@ -77,7 +77,7 @@ while [ $# -gt 0 ]; do
     no_args=false
     shift
 done
-[[ "$no_args" = true ]] && {print_usage; exit 1;}
+[[ "$no_args" = true ]] && { print_usage; exit 1; }
 
 # secondary paths to hold container data
 minio_data_path="$fedn_data_path/minio_data"
