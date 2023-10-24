@@ -35,5 +35,5 @@ From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
     conda install -y pip
     pip install --no-cache-dir -e /app/fedn
     if [ -f /app/config/requirements.txt ]; then
-        pip install --no-cache-dir -r /app/requirements.txt;
+        pip install --no-cache-dir -r /app/config/requirements.txt;
     fi
