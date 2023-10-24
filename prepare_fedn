@@ -12,7 +12,7 @@ CONF_PATH=config/fedn_config
 
 # secondary paths to hold container data
 client_data_path="temp/data"
-fedn_data_path="~/fedn_data"
+fedn_data_path="temp/fedn_run_data"
 fedn_build_path="build/containers"
 
 # check requested user options
@@ -106,6 +106,11 @@ if [ "$deploy_containers" = true ]; then
     if [ "$clean_deploy" = true ]; then
         rm -rf "$minio_data_path" "$mongo_data_path" "$mexpr_data_path" "$tm_overlay_path"
         mkdir -p "$minio_data_path" "$mongo_data_path" "$mongo_data_path/db" "$mexpr_data_path" "$tm_overlay_path"
+        # create fresh overlays for a clean deployment
+        apptainer overlay create --sparse --size 1024 $tm_overlay_path/dashboard_overlay.img
+        apptainer overlay create --sparse --size 1024 $tm_overlay_path/api_overlay.img
+        apptainer overlay create --sparse --size 1024 $tm_overlay_path/combiner_overlay.img
+        apptainer overlay create --sparse --size 1024 $tm_overlay_path/client_overlay.img
     fi
 
     # deploy common fedn services like mongodb, minio etc.
@@ -114,22 +119,18 @@ if [ "$deploy_containers" = true ]; then
     apptainer instance start --bind $mexpr_data_path:/data $fedn_build_path/fedn_mongo-express.sif mongo-express
     
     # deploy a reducer to act as dashboard
-    apptainer overlay create --sparse --size 1024 $tm_overlay_path/dashboard_overlay.img
     apptainer instance start  --overlay $tm_overlay_path/dashboard_overlay.img $fedn_build_path/fedn.sif dashboard
     apptainer exec --pwd /app --overlay $tm_overlay_path/dashboard_overlay.img instance://dashboard fedn run dashboard -n reducer --init=/app/config/settings-reducer.yaml &
     
     # deploy the api server
-    apptainer overlay create --sparse --size 1024 $tm_overlay_path/api_overlay.img
     apptainer instance start  --overlay $tm_overlay_path/api_overlay.img $fedn_build_path/fedn.sif api-server
     apptainer exec --pwd /app --overlay $tm_overlay_path/api_overlay.img instance://api-server python fedn/fedn/network/api/server.py &
     
     # deploy a combiner for model aggregations
-    apptainer overlay create --sparse --size 1024 $tm_overlay_path/combiner_overlay.img
     apptainer instance start  --overlay $tm_overlay_path/combiner_overlay.img $fedn_build_path/fedn.sif combiner
     apptainer exec --pwd /app --overlay $tm_overlay_path/combiner_overlay.img instance://combiner fedn run combiner --init=/app/config/settings-combiner.yaml &
 
     # deploy some (2) clients
-    apptainer overlay create --sparse --size 1024 $tm_overlay_path/client_overlay.img
     apptainer instance start  --overlay $tm_overlay_path/client_overlay.img $fedn_build_path/fedn.sif client
     apptainer exec --pwd /app --overlay $tm_overlay_path/client_overlay.img --bind $client_data_path:/var/data instance://client fedn run client --init=/app/config/settings-client.yaml &
     apptainer exec --pwd /app --overlay $tm_overlay_path/client_overlay.img --bind $client_data_path:/var/data instance://client fedn run client --init=/app/config/settings-client.yaml &
