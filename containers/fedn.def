@@ -6,6 +6,8 @@ From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
     CONF_PATH=config/fedn_config
 
 %environment
+    export MKL_SERVICE_FORCE_INTEL=1    # some MKL conflict with numpy need to 
+                                        # investigate further for adverse impact
     export GET_HOSTS_FROM=dns
     export PYTHONUNBUFFERED=0
     export USER=test

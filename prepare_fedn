@@ -134,7 +134,7 @@ if [ "$deploy_containers" = true ]; then
     apptainer exec --pwd /app --overlay $tm_overlay_path/combiner_overlay.img instance://combiner fedn run combiner --init=/app/config/settings-combiner.yaml &
 
     # deploy some (2) clients
-    apptainer instance start  --overlay $tm_overlay_path/client_overlay.img $fedn_build_path/fedn.sif client
-    apptainer exec --pwd /app --overlay $tm_overlay_path/client_overlay.img --bind $client_data_path:/var/data instance://client fedn run client --init=/app/config/settings-client.yaml &
+    apptainer instance start  --overlay $tm_overlay_path/client_overlay.img --bind $client_data_path:/var/data $fedn_build_path/fedn.sif client
+    apptainer exec --pwd /app --overlay $tm_overlay_path/client_overlay.img instance://client fedn run client --init=/app/config/settings-client.yaml &
     # apptainer exec --pwd /app --overlay $tm_overlay_path/client_overlay.img --bind $client_data_path:/var/data instance://client fedn run client --init=/app/config/settings-client.yaml &
 fi

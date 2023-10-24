@@ -5,9 +5,10 @@ set -e
 prepare_seed=false
 prepare_venv=false
 prepare_data=false
+use_conda_en=true
 
 # configurations
-venv_path=temp/env/fedn_venv
+venv_path=temp/temp_envs/fedn_venv
 data_path=temp/data
 seed_path=temp/seed.npz
 comp_pack_path=src/compute
@@ -89,10 +90,17 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$prepare_venv" = true ]; then
-    # initialize venv
-    eval "$(conda shell.bash hook)"
-    conda create --prefix=$venv_path python=3.10 -y
-    
+    # clean ups prior to virtual environment setup
+    rm -rf $venv_path modules/fedn/fedn/fedn.egg-info
+    # initialize virtual environment
+    if [ "$use_conda_en" = true ]; then 
+        # initialize virtual environment using hook to conda
+        eval "$(conda shell.bash hook)"
+        conda create --prefix=$venv_path python=3.10 -y
+    else
+        # initialize virtual environment using host python
+        python3 -m venv $venv_path
+    fi
     # install pip dependencies
     $venv_path/bin/pip install -r $comp_pack_path/requirements.txt
     $venv_path/bin/pip install --no-cache-dir -e modules/fedn/fedn
