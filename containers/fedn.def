@@ -19,6 +19,7 @@ From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
     {{CONF_PATH}}/settings-combiner.yaml.template /app/config/settings-combiner.yaml
     {{CONF_PATH}}/settings-reducer.yaml.template /app/config/settings-reducer.yaml
     {{CONF_PATH}}/settings-client.yaml.template /app/config/settings-client.yaml
+    {{CONF_PATH}}/requirements.txt /app/config/requirements.txt
 
 %post
     # Setup environment
