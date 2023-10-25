@@ -1,0 +1,10 @@
+network_id: localhost
+discover_host: localhost
+discover_port: 8092
+
+name: combiner
+host: localhost
+port: 12080
+max_clients: 30
+
+

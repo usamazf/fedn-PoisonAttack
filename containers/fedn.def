@@ -1,0 +1,41 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-devel
+
+%arguments
+    FEDN_PATH=modules/fedn
+    CONF_PATH=config/fedn_config
+
+%environment
+    export MKL_SERVICE_FORCE_INTEL=1    # some MKL conflict with numpy need to 
+                                        # investigate further for adverse impact
+    export GET_HOSTS_FROM=dns
+    export PYTHONUNBUFFERED=0
+    export USER=test
+    export PROJECT=project
+    export FLASK_DEBUG=1
+    export STATESTORE_CONFIG=/app/config/settings-reducer.yaml
+    export MODELSTORAGE_CONFIG=/app/config/settings-reducer.yaml
+
+%files
+    {{FEDN_PATH}}/fedn /app/fedn
+    {{CONF_PATH}}/settings-combiner.yaml.template /app/config/settings-combiner.yaml
+    {{CONF_PATH}}/settings-reducer.yaml.template /app/config/settings-reducer.yaml
+    {{CONF_PATH}}/settings-client.yaml.template /app/config/settings-client.yaml
+    {{CONF_PATH}}/requirements.txt /app/config/requirements.txt
+
+%post
+    # Setup environment
+    apt-get update && apt-get install -y gcc
+    mkdir -p /app \
+    && mkdir -p /app/client \
+    && mkdir -p /app/certs \
+    && mkdir -p /app/client/package
+
+    # Install fedn requirements
+    export "PATH=/opt/conda/bin:$PATH"
+    conda install -y -c conda-forge pyyaml
+    conda install -y pip
+    pip install --no-cache-dir -e /app/fedn
+    if [ -f /app/config/requirements.txt ]; then
+        pip install --no-cache-dir -r /app/config/requirements.txt;
+    fi

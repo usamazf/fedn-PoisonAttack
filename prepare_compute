@@ -1,0 +1,123 @@
+#!/bin/bash
+set -e
+
+# input flags
+prepare_seed=false
+prepare_venv=false
+prepare_data=false
+use_conda_en=true
+
+# configurations
+venv_path=temp/temp_envs/fedn_venv
+data_path=temp/data
+seed_path=temp/seed.npz
+comp_pack_path=src/compute
+comp_out_path=temp/package.tgz
+
+# check requested user options
+print_usage() {
+    echo " "
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help          Display this help message"
+    echo "  -s, --seed          Prepare seed model"
+    echo "      --seed-path     Specify path for seed model (default: $seed_path)"
+    echo "  -v, --venv          Prepare virtual enviornment"
+    echo "      --venv-path     Specify path for virtual environment (default: $venv_path)"
+    echo "  -d, --data          Prepare dataset (download + split)"
+    echo "      --data-path     Specify path for dataset (default: $data_path)"
+    echo ""
+}
+
+no_args=true
+while [ $# -gt 0 ]; do
+    case $1 in
+        # handle options
+        -h | --help)
+            # print script help information
+            print_usage
+            exit 0
+            ;;
+        -s | --seed)
+            # prepare seed model
+            prepare_seed=true
+            ;;
+        --seed-path)
+            # seed model path
+            if [[ -z "$2" || "$2" == -* ]]; then
+                echo "Output path not specified." >&2
+                exit 1
+            fi
+            seed_path=$2
+            shift
+            ;;
+        -v | --venv)
+            # prepare virtual environment
+            prepare_venv=true
+            ;;
+        --venv-path)
+            # virtual environment path
+            if [[ -z "$2" || "$2" == -* ]]; then
+                echo "Output path not specified." >&2
+                exit 1
+            fi
+            venv_path=$2
+            shift
+            ;;
+        -d | --data)
+            # prepare dataset by downloading and splitting
+            prepare_data=true
+            ;;
+        --data-path)
+            # dataset download / split path
+            if [[ -z "$2" || "$2" == -* ]]; then
+                echo "Output path not specified." >&2
+                exit 1
+            fi
+            data_path=$2
+            shift
+            ;;
+        *)
+            # unidentified flag
+            echo "Unidentified flag $1"
+            print_usage
+            exit 1
+            ;;
+    esac
+    no_args=false
+    shift
+done
+
+if [ "$prepare_venv" = true ]; then
+    # clean ups prior to virtual environment setup
+    rm -rf $venv_path modules/fedn/fedn/fedn.egg-info
+    # initialize virtual environment
+    if [ "$use_conda_en" = true ]; then 
+        # initialize virtual environment using hook to conda
+        eval "$(conda shell.bash hook)"
+        conda create --prefix=$venv_path python=3.10 -y
+    else
+        # initialize virtual environment using host python
+        python3 -m venv $venv_path
+    fi
+    # install pip dependencies
+    $venv_path/bin/pip install -r $comp_pack_path/requirements.txt
+    $venv_path/bin/pip install --no-cache-dir -e modules/fedn/fedn
+fi
+
+if [ "$prepare_data" = true ]; then
+    # fetch the mnist dataset
+    $venv_path/bin/python src/utils/get_data --out_dir=$data_path
+
+    # split the mnist dataset
+    $venv_path/bin/python src/utils/split_data --out_dir=$data_path
+fi
+
+if [ "$prepare_seed" = true ]; then
+    # initialize seed model
+    $venv_path/bin/python $comp_pack_path/entrypoint init_seed --out_path=$seed_path
+fi
+
+# create the compute package
+tar -C src/ -czvf $comp_out_path compute --transform s/compute/client/
