@@ -4,6 +4,8 @@ APIClient's implementation to mimic webportal functionalities
 
 import sys
 import argparse
+import time
+import random
 
 from fedn import APIClient
 
@@ -44,21 +46,39 @@ def parse_args(args=sys.argv[1:]):
     args = parser.parse_args()
     return args
 
-if __name__ == "__main__":
-    # Get system arguments
+def main():
+    # get system arguments
     args = parse_args()
 
-    # Create an instance of the APIClient and connect to FEDn server
+    # create an instance of the APIClient and connect to FEDn server
     client = APIClient(host=args.host, port=args.port)
     
-    # Send the compute package and the initial seed model
+    # send the compute package and the initial seed model
     client.set_package(args.package, helper=args.helper)
     client.set_initial_model(args.init_model)
 
-    # Do trainig round / monitoring
-    client.start_session(
-        session_id="test-session", 
-        helper=args.helper,
-        rounds=5,  
-        round_timeout=180
-    )
+    # submit training configurations
+    status = False
+    while not status:
+        # deploy a training round with random session id
+        status = client.start_session(
+            session_id=f"session_{int(10000000 * random.random())}", 
+            helper=args.helper,
+            rounds=15,  
+            round_timeout=180
+        )['success']
+
+        # wait before few seconds before generating new reques
+        time.sleep(5)
+
+    # wait for training round to end?
+    while client.get_controller_status()["state"] != "idle":
+        print ("Waiting for controller to become idle... ")
+        time.sleep(15)
+
+    # print train / validation statistics
+    # print(client.get_model_trail())
+    # print(client.list_validations())
+
+if __name__ == "__main__":
+    main()
