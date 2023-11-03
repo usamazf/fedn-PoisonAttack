@@ -60,21 +60,21 @@ def fetch_compute_results(host="localhost", port=8092, helper="pytorchhelper", s
     # Create an instance of the APIClient and connect to FEDn server
     client = APIClient(host=host, port=port)
     
-    print()
-    print()
-    print()
-    print(client.get_session(session_id))
-    print()
-    print()
-    print()
+    # print()
+    # print()
+    # print()
+    # print(client.get_session(session_id))
+    # print()
+    # print()
+    # print()
     print(client.list_rounds())
-    print()
-    print()
-    print()
-    print(client.list_validations())
-    print()
-    print()
-    print()
+    print(client.validation_data())
+
+    # rounds_info = client.list_rounds()
+    # validation_data = client.list_validations()
+    # for round_id in range(1, 20):
+    #     rounds_info[f"{round_id}"]["reducer"][0]
+    #     #validation_data[f"{round_id}"]
 
 # def main():
 #     # Get system arguments

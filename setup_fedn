@@ -290,17 +290,21 @@ if [[ "${backend}" == "APPTAINER" ]]; then
         # Fetch local variables
         local n_clients=$1
         local data_split_path=$2
-
+        
         # Deploy specified number of clients
         for (( client_id=1; client_id<=${n_clients}; client_id++ ))
         do
             printf "[INFO]: Running client ${client_id} of ${n_clients}. \\n"
+            # Need to setup configs file for all clients
+            mkdir --parent "temp/client_configs_temp/${client_id}"
+            cp "${fedn_configs}/settings-client.yaml.template" "temp/client_configs_temp/${client_id}/settings-client.yaml"
+            echo "name: client_${client_id}" >> "temp/client_configs_temp/${client_id}/settings-client.yaml"
             # Create fresh overlay for this client
             apptainer overlay create --sparse --size ${overlay_size} "${tm_overlay_path}/client_${client_id}_overlay.img"
             # Start the FEDn container instance
-            apptainer instance start --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" --bind "${data_split_path}/${client_id}":/var/data ${fedn_build_path}/fedn.sif "client_${client_id}"
+            apptainer instance start --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" --bind "${data_split_path}/${client_id}":/var/data,"temp/client_configs_temp/${client_id}":/client_configs ${fedn_build_path}/fedn.sif "client_${client_id}"
             # Run the client process
-            apptainer exec --pwd /app --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" instance://"client_${client_id}" fedn run client --init=/app/config/settings-client.yaml &> "${out_logs_path}/client_${client_id}.log" &
+            apptainer exec --pwd /app --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" instance://"client_${client_id}" fedn run client --init=/client_configs/settings-client.yaml &> "${out_logs_path}/client_${client_id}.log" &
             sleep 5
         done
     }
