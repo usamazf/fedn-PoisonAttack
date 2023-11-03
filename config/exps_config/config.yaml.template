@@ -1,13 +1,13 @@
 SERVER_CONFIGS:
-    N_TRAIN_ROUND: 2
+    N_TRAIN_ROUND: 10
     ROUND_TIMEOUT: 250
 
 CLIENT_CONFIGS:
     RUN_DEVICE: cpu                 # Options: [auto, cpu, cuda]
     LOCAL_EPCH: 1
     BATCH_SIZE: 64
-    LEARN_RATE: 0.001
-    OPTIMIZER: ADAM                 # Options: [ADAM, SGD]
+    LEARN_RATE: 0.01
+    OPTIMIZER: SGD                  # Options: [ADAM, SGD]
     CRITERION: CROSSENTROPY         # Options: [CROSSENTROPY, NLLL]
 
 DATASET_CONFIGS:

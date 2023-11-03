@@ -33,7 +33,7 @@ def submit_compute_configs(package, init_model, host="localhost", port=8092, hel
             time.sleep(30)
 
 
-def submit_train_request(config_file, host="localhost", port=8092, helper="pytorchhelper"):
+def submit_train_request(config_file, host="localhost", port=8092, helper="pytorchhelper", session_id="session_1"):
     
     # Fetch user configurations
     exp_configs = parse_configs(config_file)
@@ -46,7 +46,7 @@ def submit_train_request(config_file, host="localhost", port=8092, helper="pytor
     while not status:
         # Deploy a training round with random session id
         status = client.start_session(
-            session_id=f"session_{int(10000000 * random.random())}", 
+            session_id=session_id, #f"session_{int(10000000 * random.random())}", 
             helper=helper,
             rounds=exp_configs["SERVER_CONFIGS"]["N_TRAIN_ROUND"],
             round_timeout=exp_configs["SERVER_CONFIGS"]["ROUND_TIMEOUT"]
@@ -55,8 +55,26 @@ def submit_train_request(config_file, host="localhost", port=8092, helper="pytor
         # Wait before few seconds before generating new request
         time.sleep(5)
 
-def fetch_compute_results():
-    pass
+def fetch_compute_results(host="localhost", port=8092, helper="pytorchhelper", session_id="session_1"):
+
+    # Create an instance of the APIClient and connect to FEDn server
+    client = APIClient(host=host, port=port)
+    
+    print()
+    print()
+    print()
+    print(client.get_session(session_id))
+    print()
+    print()
+    print()
+    print(client.list_rounds())
+    print()
+    print()
+    print()
+    print(client.list_validations())
+    print()
+    print()
+    print()
 
 # def main():
 #     # Get system arguments
