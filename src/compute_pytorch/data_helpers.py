@@ -96,8 +96,8 @@ def get_dataset(
         from datasets.mnist import load_mnist
         trainset, testset = load_mnist(out_dir=dataset_path, download=dataset_down)
         # Modify data to add extra channel dimension
-        custom_trainset = CustomDataset(data=trainset.data.unsqueeze(1), targets=trainset.targets, transform=trainset.transform, target_transform=trainset.target_transform)
-        custom_testset = CustomDataset(data=testset.data.unsqueeze(1), targets=testset.targets, transform=testset.transform, target_transform=testset.target_transform)
+        custom_trainset = CustomDataset(data=trainset.data.unsqueeze(1)/255, targets=trainset.targets, transform=trainset.transform, target_transform=trainset.target_transform)
+        custom_testset = CustomDataset(data=testset.data.unsqueeze(1)/255, targets=testset.targets, transform=testset.transform, target_transform=testset.target_transform)
         return custom_trainset, custom_testset
     elif dataset_name == "EMNIST-DIGITS":
         # Load EMNIST dataset

@@ -13,7 +13,7 @@ def load_mnist(out_dir="temp/data", download=True) -> Tuple[torchvision.datasets
     transform = transforms.Compose([
         torchvision.transforms.Resize(size=(32,32), antialias=None),
         # transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.1307,))
+        # transforms.Normalize((0.1307,), (0.1307,))
     ])
 
     # Initialize Datasets. MNIST will automatically download if not present
