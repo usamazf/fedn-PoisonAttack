@@ -1,7 +1,7 @@
 entry_points:
   train:
-    command: python entrypoint train $ENTRYPOINT_OPTS --data_path="/var/data" --config_file="config.yaml"
+    command: python entrypoint.py train $ENTRYPOINT_OPTS --data_path="/var/data" --config_file="config.yaml"
   validate:
-    command: python entrypoint validate $ENTRYPOINT_OPTS --data_path="/var/data" --config_file="config.yaml"
+    command: python entrypoint.py validate $ENTRYPOINT_OPTS --data_path="/var/data" --config_file="config.yaml"
   # predict:
-  #   command: python entrypoint predict $ENTRYPOINT_OPTS --config_file config.yaml
+  #   command: python entrypoint.py predict $ENTRYPOINT_OPTS --config_file config.yaml

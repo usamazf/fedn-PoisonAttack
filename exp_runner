@@ -1,0 +1,172 @@
+#! /bin/bash
+#
+# Author: Usama Zafar <usama-zafar@outlook.com>
+#
+#/ Usage: exp_runner [OPTIONS]
+#/
+#/ Options:
+#/    -h, --help               	 Display this help message
+#/        --backend            	 Specify whether to use apptainer or docker containers (default: APPTAINER)
+#/    -b, --build              	 Build all FEDn containers
+#/    -l, --log-path           	 Specify output bath for log files (default: temp/logs)
+
+
+#{{{ Bash settings
+
+# abort on nonzero exitstatus
+set -e
+
+#}}}
+
+#{{{ Global Variables
+
+# Parse script name and path
+IFS=$'\t\n'   # Split on newlines and tabs (but not on spaces)
+script_name=$(basename "${0}")
+script_dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+readonly script_name script_dir
+
+# Configuration flags
+build_containers=false
+
+# Core paths
+exps_configs="config/exps_config/*"
+
+# Secondary paths to hold container data
+client_data_path="temp/data"
+fedn_data_path="temp/fedn_run_data"
+out_logs_path="temp/logs"
+fedn_build_path="temp/build/containers"
+
+# Other configurable variables
+backend="APPTAINER"
+data_split_path="temp/"
+comp_pack_path="src/compute_pytorch"
+fedn_apiclient="src/api_client.py"
+temp_compute="temp/temp_compute"
+comp_out_path="temp/package.tgz"
+seed_path=temp/seed.npz
+
+#}}}
+
+
+# Check requested user options
+print_usage( ) {
+    printf "\\n"
+    printf "Usage: ${script_name} [OPTIONS]\\n"
+    printf "\\n"
+    printf "Options:\\n"
+    printf "   -h, --help               \\t Display this help message\\n"
+    printf "       --backend            \\t Specify whether to use apptainer or docker containers (default: ${backend})\\n"
+    printf "   -b, --build              \\t Build all FEDn containers\\n"
+    printf "   -l, --log-path           \\t Specify output bath for log files (default: ${out_logs_path})\\n"
+    printf "\\n"
+}
+
+no_args=true
+while [ $# -gt 0 ]; do
+    case $1 in
+        # Handle user options
+        -h | --help)
+            # print script help info
+            print_usage
+            exit 0
+            ;;
+        --backend)
+            # Specify which backend to use
+            if [[ -z "${2}" || "${2}" == -* ]]; then
+                printf "[ERROR]: Backend not specified.\\n" >&2
+                exit 1
+            elif [[ "${2}" != "APPTAINER" && "${2}" != "DOCKER" ]]; then
+                printf "[ERROR]: Invalid backend specified, currently support APPTAINER and DOCKER.\\n" >&2
+                exit 1
+            fi
+            backend="${2}"
+            shift
+            ;;
+        -b | --build)
+            # Build all containers
+            build_containers=true
+            ;;
+        -l | --log-path)
+            # Specify build path
+            if [[ -z "${2}" || "${2}" == -* ]]; then
+                printf "[ERROR]: Logs output path not specified.\\n" >&2
+                exit 1
+            fi
+            out_logs_path="${2}"
+            shift
+            ;;
+        *)
+            # Unidentified flag
+            printf "[ERROR]: Unidentified flag ${1}.\\n"
+            print_usage
+            exit 1
+            ;;
+    esac
+    no_args=false
+    shift
+done
+readonly comp_pack_path fedn_apiclient temp_compute comp_out_path seed_path 
+
+
+#############################################################################################################################
+##  Experiment deployment
+#############################################################################################################################
+
+# [Re]-Build containers if requested
+if [ "${build_containers}" = true ]; then
+    ./setup_fedn --backend "${backend}" --build --build-path "${fedn_build_path}"
+    #create_overlays
+fi
+
+
+for f in ${exps_configs}
+do  
+    printf "[INFO]: Running experiment with ${f} config file. \\n"
+    
+    # Clean up deployment path from previous experiment
+    ./setup_fedn --backend "${backend}" --clean-deploy
+
+    # Create directory to temporarily hold compute package
+    if [[ -d "${temp_compute}" ]]; then
+        rm --recursive --force "${temp_compute}"
+    fi
+    mkdir --parents "${temp_compute}"
+    
+    # Prepare the compute package at temp location
+    cp --recursive "${comp_pack_path}" "${temp_compute}/client"
+    cp "${f}" "${temp_compute}/client/config.yaml"
+
+    # Fetch and split data
+    apptainer exec "${fedn_build_path}/fedn.sif" python "src/compute_pytorch/data_helpers.py" split_data --out_dir="${data_split_path}" --config_file="${temp_compute}/client/config.yaml"
+
+    # Prepare compute package
+    tar -C "${temp_compute}/" -czvf "${comp_out_path}" --exclude "__pycache__" client
+
+    # Get initial / seed model
+    apptainer exec "${fedn_build_path}/fedn.sif" python "${temp_compute}/client/entrypoint" init_seed --out_path="${seed_path}" --config_file="${temp_compute}/client/config.yaml"
+
+    # Deploy FEDn core services
+    ./setup_fedn --backend "${backend}" --deploy-core
+
+    # Deploy FEDn combiner service
+    ./setup_fedn --backend "${backend}" --deploy-combiner
+
+    # Submit the compute package and seed model
+    apptainer exec "${fedn_build_path}/fedn.sif" python "${fedn_apiclient}" submit --package="${comp_out_path}" --init_model="${seed_path}"
+
+    # Initiate client containers and map data splits
+    n_clients=$(awk '/N_DATA_SPLIT/ {print $2}' "${temp_compute}/client/config.yaml")
+    ./setup_fedn --backend "${backend}" --deploy-clients "${n_clients}" "${data_split_path}/splits"
+
+    # Let all clients fire up, wait 30 sec before submitting train request
+    sleep 30
+
+    # Initiate training process
+    apptainer exec ${fedn_build_path}/fedn.sif python ${fedn_apiclient} train --config_file="${temp_compute}/client/config.yaml"
+
+    # Collect results
+    # TODO: Add mechanism to collect train results
+
+done

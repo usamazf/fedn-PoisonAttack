@@ -55,6 +55,9 @@ def submit_train_request(config_file, host="localhost", port=8092, helper="pytor
         # Wait before few seconds before generating new request
         time.sleep(5)
 
+def fetch_compute_results():
+    pass
+
 # def main():
 #     # Get system arguments
 #     args = parse_args()
@@ -72,6 +75,7 @@ if __name__ == "__main__":
     fire.Fire({
         "submit": submit_compute_configs,
         "train": submit_train_request,
+        "report": fetch_compute_results,
         # "validate": validate,
         # "predict": predict,
     })

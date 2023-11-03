@@ -67,8 +67,6 @@ def train(in_model_path, out_model_path, data_path=None, config_file="config.yam
     epochs = configs["CLIENT_CONFIGS"]["LOCAL_EPCH"]
 
     # Load dataset for training
-    # x_train, y_train = _load_data(data_path)
-    # train_dataset = TensorDataset(x_train, y_train)
     trainset = load_data(data_path)
 
     # Create train loader

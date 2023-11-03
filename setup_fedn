@@ -1,102 +1,186 @@
-#!/bin/bash
-set -e
+#! /bin/bash
+#
+# Author: Usama Zafar <usama-zafar@outlook.com>
+#
+#/ Usage: setup_fedn [OPTIONS]... [ARGS]...
+#/
+#/ Options:
+#/    -h, --help               	 Display this help message
+#/        --backend            	 Specify whether to use apptainer or docker containers (default: APPTAINER)
+#/    -b, --build              	 Build all FEDn containers
+#/    -p, --build-path         	 Specify build path for FEDn containers (default: temp/build/containers)
+#/    -c, --clean-deploy       	 Perform a clean deployment
+#/        --create-overlays    	 Create fresh overlays if requested
+#/        --deploy-core        	 Deploy core components of FEDn network including
+#/                             	 minio, mongodb, dashboard, api-server 
+#/        --deploy-combiner    	 Deploy combiner used for model aggregation.
+#/        --deploy-clients     	 Deploy number of requested clients
+#/    -l, --log-path           	 Specify output bath for log files (default: temp/logs)
+#/    -f, --finish             	 Finish current FEDn deployment
+#/        --cleanup            	 Perform a full clean up to remove all temporary files
+#/    -o, --outpath            	 Specify output path for fedn data (default: temp/fedn_run_data)
+#
 
-# Build / deploy flags
+#{{{ Bash settings
+# abort on nonzero exitstatus
+set -e
+#}}}
+
+
+#{{{ Global Variables
+# Parse script name and path
+IFS=$'\t\n'   # Split on newlines and tabs (but not on spaces)
+script_name=$(basename "${0}")
+script_dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+readonly script_name script_dir
+
+# Initialize script flags
 build_containers=false
-deploy_containers=false
+build_overlays=false
+deploy_core=false
+deploy_combiner=false
+deploy_clients=false
+#deploy_core
 clean_deploy=false
-run_experiments=false
+cleanup=false
+#run_experiments=false
 finish_deployment=false
+
+# Virtualization backend variable
+backend="APPTAINER"
 
 # Core paths of fedn library and configurations
 fedn_lib_path="modules/fedn"
 fedn_configs="config/fedn_config"
-exps_configs="exp_configs/*"
+apptainer_defs="containers"
 
 # Secondary paths to hold container data
-client_data_path="temp/data"
 fedn_data_path="temp/fedn_run_data"
-fedn_build_path="build/containers"
+out_logs_path="temp/logs"
+fedn_build_path="temp/build/containers"
 
 # Other configurable variables
-data_split_path="temp/"
 comp_pack_path="src/compute_pytorch"
 fedn_apiclient="src/api_client.py"
 temp_compute="temp/temp_compute"
 comp_out_path="temp/package.tgz"
 seed_path=temp/seed.npz
+overlay_size=1024
+client_args=()
 
+#}}}
 
-# check requested user options
-print_usage() {
-    echo " "
-    echo "Usage: $0 [OPTIONS]"
-    echo ""
-    echo "Options:"
-    echo "  -h, --help          Display this help message"
-    echo "  -b, --build         [Re]-Build FEDn containers"
-    echo "  -d, --deploy        Deploy FEDn network components"
-    echo "  -c, --clean         Perform a clean deployment"
-    echo "  -e, --experiments   Run experiments at specified path"
-    echo "  -o, --outpath       Specify output path default temp/fedn_data"
-    echo "  -p, --buildpath     Specify build path for FEDn containers"
-    echo "      --finish        Perform clean up and close the FEDn deployment"
-    echo ""
+# Check requested user options
+print_usage( ) {
+    printf "\\n"
+    printf "Usage: ${script_name} [OPTIONS]... [ARGS]...\\n"
+    printf "\\n"
+    printf "Options:\\n"
+    printf "   -h, --help               \\t Display this help message\\n"
+    printf "       --backend            \\t Specify whether to use apptainer or docker containers (default: ${backend})\\n"
+    printf "   -b, --build              \\t Build all FEDn containers\\n"
+    printf "   -p, --build-path         \\t Specify build path for FEDn containers (default: ${fedn_build_path})\\n"
+    printf "   -c, --clean-deploy       \\t Perform a clean deployment\\n"
+    printf "       --create-overlays    \\t Create fresh overlays if requested\\n"
+    printf "       --deploy-core        \\t Deploy core components of FEDn network including\\n"
+    printf "                            \\t minio, mongodb, dashboard, api-server \\n"
+    printf "       --deploy-combiner    \\t Deploy combiner used for model aggregation.\\n"
+    printf "       --deploy-clients     \\t Deploy number of requested clients\\n"
+    printf "   -l, --log-path           \\t Specify output bath for log files (default: ${out_logs_path})\\n"
+    printf "   -f, --finish             \\t Finish current FEDn deployment\\n"
+    printf "       --cleanup            \\t Perform a full clean up to remove all temporary files\\n"
+    printf "   -o, --outpath            \\t Specify output path for fedn data (default: ${fedn_data_path})\\n"
+    printf "\\n"
 }
 
 no_args=true
 while [ $# -gt 0 ]; do
     case $1 in
-        # handle options
+        # Handle user options
         -h | --help)
-            # print script help information
+            # print script help info
             print_usage
             exit 0
             ;;
+        --backend)
+            # Specify which backend to use
+            if [[ -z "${2}" || "${2}" == -* ]]; then
+                printf "[ERROR]: Backend not specified.\\n" >&2
+                exit 1
+            elif [[ "${2}" != "APPTAINER" && "${2}" != "DOCKER" ]]; then
+                printf "[ERROR]: Invalid backend specified, currently support APPTAINER and DOCKER.\\n" >&2
+                exit 1
+            fi
+            backend="${2}"
+            shift
+            ;;
         -b | --build)
-            # build the containers
+            # Build all containers
             build_containers=true
             ;;
-        -d | --deploy)
-            # deploy fedn network
-            deploy_containers=true
+        -p | --build-path)
+            # Specify build path
+            if [[ -z "${2}" || "${2}" == -* ]]; then
+                printf "[ERROR]: Build output path not specified.\\n" >&2
+                exit 1
+            fi
+            fedn_build_path="${2}"
+            shift
             ;;
-        -c | --clean)
-            # deploy fedn network
+        -l | --log-path)
+            # Specify build path
+            if [[ -z "${2}" || "${2}" == -* ]]; then
+                printf "[ERROR]: Logs output path not specified.\\n" >&2
+                exit 1
+            fi
+            out_logs_path="${2}"
+            shift
+            ;;
+        -c | --clean-deploy)
+            # Make clean deployment
             clean_deploy=true
             ;;
-        --finish)
-            # deploy fedn network
-            finish_deployment=true
+        --cleanup)
+            # Clean up temporary files
+            cleanup=true
             ;;
         -o | --outpath)
-            if [[ -z "$2" || "$2" == -* ]]; then
-                echo "Output path not specified." >&2
+            # Specify output paht for FEDn data
+            if [[ -z "${2}" || "${2}" == -* ]]; then
+                printf "[ERROR]: Output path not specified.\\n" >&2
                 exit 1
             fi
-            fedn_data_path=$2
+            fedn_data_path="${2}"
             shift
             ;;
-        -p | --buildpath)
-            if [[ -z "$2" || "$2" == -* ]]; then
-                echo "Output path not specified." >&2
-                exit 1
-            fi
-            fedn_build_path=$2
-            shift
+        --finish)
+            # Finish FEDn network deployment
+            finish_deployment=true
             ;;
-        -e | --experiments)
-            if [[ -z "$2" || "$2" == -* ]]; then
-                echo "Output path not specified." >&2
-                exit 1
-            fi
-            run_experiments=true
-            exps_configs=$2
-            shift
+        --deploy-core)
+            # Deploy FEDn core components
+            deploy_core=true
+            ;;
+        --deploy-combiner)
+            # Deploy FEDn combiners
+            deploy_combiner=true
+            ;;
+        --deploy-clients)
+            # Deploy FEDn clients
+            deploy_clients=true
+            while [[ ! ( -z "${2}" || "${2}" == -* ) ]]; do
+                echo "Got client args ${2}"
+                client_args+=("${2}")
+                shift
+            done
+            ;;
+        --create-overlays)
+            # Create fresh overlays
+            build_overlays=true
             ;;
         *)
-            # unidentified flag
-            echo "Unidentified flag $1"
+            # Unidentified flag
+            printf "[ERROR]: Unidentified flag ${1}.\\n"
             print_usage
             exit 1
             ;;
@@ -104,7 +188,7 @@ while [ $# -gt 0 ]; do
     no_args=false
     shift
 done
-[[ "$no_args" = true ]] && { print_usage; exit 1; }
+[[ "${no_args}" = true ]] && { print_usage; exit 1; }
 
 # Secondary paths to hold container data
 minio_data_path="${fedn_data_path}/minio_data"
@@ -112,173 +196,168 @@ mongo_data_path="${fedn_data_path}/mongo_data"
 mexpr_data_path="${fedn_data_path}/mexpr_data"
 tm_overlay_path="${fedn_data_path}/overalys"
 
+# Make all global variables readonly
+readonly build_containers clean_deploy cleanup finish_deployment backend apptainer_defs 
+readonly fedn_lib_path fedn_configs fedn_data_path out_logs_path fedn_build_path 
 
 #############################################################################################################################
-##  Helper functions
+##  Apptainer Backend
 #############################################################################################################################
 
-# Clean up the build paths for fresh build
-clean_build_paths() {
-    echo "Cleaning up build path..."
-    # prepare build directory
-    if test -d ${fedn_build_path}; then
-        rm -rf ${fedn_build_path}
-    fi
-    mkdir -p ${fedn_build_path}
-}
+if [[ "${backend}" == "APPTAINER" ]]; then
+    #########################################################################################################################
+    ##  Helper functions
+    #########################################################################################################################
 
-# Build fedn containers using apptainer
-create_containers() {
-    clean_build_paths
-    # Build containers
-    echo "Buidling containers ..."
-    apptainer build ${fedn_build_path}/fedn_minio.sif containers/fedn_minio.def
-    apptainer build ${fedn_build_path}/fedn_mongo.sif containers/fedn_mongo.def
-    apptainer build ${fedn_build_path}/fedn_mongo-express.sif containers/fedn_mongo-express.def
-    apptainer build --build-arg FEDN_PATH=${fedn_lib_path} --build-arg CONF_PATH=${fedn_configs} ${fedn_build_path}/fedn.sif containers/fedn.def
-}
-
-# Clean up the output paths for fresh deployment
-clean_depoly_paths() {
-    echo "Cleaning up deployment paths..."
-    rm -rf "${minio_data_path}" "${mongo_data_path}" "${mexpr_data_path}" "${tm_overlay_path}"
-    mkdir -p "${minio_data_path}" && mkdir -p "${mongo_data_path}" && mkdir -p "${mongo_data_path}/db" && mkdir -p "${mexpr_data_path}" && mkdir -p "${tm_overlay_path}"
-}
-
-# Create new overlays for fresh deployment
-create_overlays() {
-    # create fresh overlays for a clean deployment
-    apptainer overlay create --sparse --size 1024 ${tm_overlay_path}/dashboard_overlay.img
-    apptainer overlay create --sparse --size 1024 ${tm_overlay_path}/api_overlay.img
-    apptainer overlay create --sparse --size 1024 ${tm_overlay_path}/combiner_overlay.img
-}
-
-# Deploy the core FEDn network
-deploy_fedn_network() {
-    echo "Deploying FEDn network containers ..."
-    # Deploy common fedn services like mongodb, mongo-express, minio etc.
-    apptainer instance start --bind ${minio_data_path}:/data ${fedn_build_path}/fedn_minio.sif minio
-    apptainer instance start --bind ${mongo_data_path}:/data ${fedn_build_path}/fedn_mongo.sif mongo
-    apptainer instance start --bind ${mexpr_data_path}:/data ${fedn_build_path}/fedn_mongo-express.sif mongo-express
-    
-    # Deploy a reducer to act as dashboard
-    apptainer instance start  --overlay ${tm_overlay_path}/dashboard_overlay.img ${fedn_build_path}/fedn.sif dashboard
-    apptainer exec --pwd /app --overlay ${tm_overlay_path}/dashboard_overlay.img instance://dashboard fedn run dashboard -n reducer --init=/app/config/settings-reducer.yaml &
-    
-    # Deploy the api server
-    apptainer instance start  --overlay ${tm_overlay_path}/api_overlay.img ${fedn_build_path}/fedn.sif api-server
-    apptainer exec --pwd /app --overlay ${tm_overlay_path}/api_overlay.img instance://api-server python fedn/fedn/network/api/server.py &
-    
-    # Deploy a combiner for model aggregations
-    apptainer instance start  --overlay ${tm_overlay_path}/combiner_overlay.img ${fedn_build_path}/fedn.sif combiner
-    apptainer exec --pwd /app --overlay ${tm_overlay_path}/combiner_overlay.img instance://combiner fedn run combiner --init=/app/config/settings-combiner.yaml &
-}
-
-# Deploy bunch of clients TODO: figure out logic for deployment
-
-
-#############################################################################################################################
-##  Deployment logic
-#############################################################################################################################
-
-if [ "${run_experiments}" = true ]; then
-    #--------------------------------------------
-    # Run experiments
-    #--------------------------------------------
-
-    # Build containers if requested
-    if [ "${build_containers}" = true ]; then
-        create_containers
-    fi
-
-    for f in ${exps_configs}
-    do  
-        echo "Running experiment with ${f} config file."
-        
-        # Clean up if fresh deployment requested
-        if [ "${clean_deploy}" = true ]; then
-            clean_depoly_paths
-            create_overlays
+    # Clean up the build paths for fresh build
+    clean_build_paths() {
+        printf "[INFO]: Cleaning up build path... \\n"
+        # prepare build directory
+        if test -d "${fedn_build_path}"; then
+            rm --recursive --force "${fedn_build_path}"
         fi
+        mkdir --parents "${fedn_build_path}"
+    }
 
-        # Create directory to temporarily hold compute package
-        if test -d ${temp_compute}; then
-            rm -rf ${temp_compute}
-        fi
-        mkdir -p "${temp_compute}"
+    # Build service fedn containers
+    build_service_containers() {
+        printf "[INFO]: Building service containers... \\n"
+        apptainer build "${fedn_build_path}/fedn_minio.sif" "${apptainer_defs}/fedn_minio.def"
+        apptainer build "${fedn_build_path}/fedn_mongo.sif" "${apptainer_defs}/fedn_mongo.def"
+        apptainer build "${fedn_build_path}/fedn_mongo-express.sif" "${apptainer_defs}/fedn_mongo-express.def"
+    }
+    
+    # Build service fedn containers
+    build_core_containers() {
+        printf "[INFO]: Building core FEDn containers... \\n"
+        apptainer build --build-arg FEDN_PATH="${fedn_lib_path}" --build-arg CONF_PATH="${fedn_configs}" "${fedn_build_path}/fedn.sif" "${apptainer_defs}/fedn.def"
+    }
+
+    # Build all fedn containers using apptainer
+    build_all_containers() {
+        clean_build_paths
+        # Build containers
+        printf "[INFO]: Buidling all containers... \\n"
+        build_service_containers
+        build_core_containers
+    }
+
+    # Clean up the output paths for fresh deployment
+    clean_depolyment_paths() {
+        printf "[INFO]: Cleaning up deployment paths... \\n"
+        rm --recursive --force -- "${minio_data_path}" "${mongo_data_path}" "${mexpr_data_path}" "${tm_overlay_path}" "${out_logs_path}"
+        mkdir --parents "${minio_data_path}" "${mongo_data_path}" "${mongo_data_path}/db" "${mexpr_data_path}" "${tm_overlay_path}" "${out_logs_path}"
+    }
+
+    # Clean up everything, even build, let's not??
+    clean_everything() {
+        printf "[INFO]: Cleaning up everything... \\n"
+        rm --recursive --force -- "${fedn_data_path}" "${tm_overlay_path}" "${out_logs_path}"
+    }
+
+    # Create new overlays for fresh deployment
+    create_overlays() {
+        printf "[INFO]: Creating overlays... \\n"
+        apptainer overlay create --sparse --size "${overlay_size}" "${tm_overlay_path}/dashboard_overlay.img"
+        apptainer overlay create --sparse --size "${overlay_size}" "${tm_overlay_path}/api_overlay.img"
+        apptainer overlay create --sparse --size "${overlay_size}" "${tm_overlay_path}/combiner_overlay.img"
+    }
+
+    # Deploy core fedn services
+    deploy_fedn_core() {
+        # Deploy common fedn services like mongodb, mongo-express, minio etc.
+        apptainer instance start --bind "${minio_data_path}":/data "${fedn_build_path}/fedn_minio.sif" minio &> "${out_logs_path}/minio.log"
+        apptainer instance start --bind "${mongo_data_path}":/data "${fedn_build_path}/fedn_mongo.sif" mongo &> "${out_logs_path}/mongo.log"
+        apptainer instance start --bind "${mexpr_data_path}":/data "${fedn_build_path}/fedn_mongo-express.sif" mongo-express &> "${out_logs_path}/mongo_express.log"
         
-        # Prepare the compute package at temp location
-        cp -r "${comp_pack_path}" "${temp_compute}/client"
-        cp "${f}" "${temp_compute}/client/config.yaml"
-
-        # Fetch and split data
-        apptainer exec ${fedn_build_path}/fedn.sif python "src/compute_pytorch/data_helpers.py" split_data --out_dir="$data_split_path" --config_file="${temp_compute}/client/config.yaml"
-
-        # Prepare compute package
-        tar -C "${temp_compute}/" -czvf ${comp_out_path} --exclude "__pycache__" client
-
-        # Get initial / seed model
-        apptainer exec ${fedn_build_path}/fedn.sif python "${temp_compute}/client/entrypoint" init_seed --out_path="${seed_path}" --config_file="${temp_compute}/client/config.yaml"
-
-        # Deploy FEDn network
-        deploy_fedn_network
-
-        # Submit the compute package and seed model
-        apptainer exec ${fedn_build_path}/fedn.sif python ${fedn_apiclient} submit --package="${comp_out_path}" --init_model="${seed_path}"
-
-        # Initiate client containers and map data splits
-        n_clients=$(awk '/N_DATA_SPLIT/ {print $2}' "${temp_compute}/client/config.yaml")
+        # Deploy a reducer to act as dashboard
+        apptainer instance start  --overlay "${tm_overlay_path}/dashboard_overlay.img" "${fedn_build_path}/fedn.sif" dashboard
+        apptainer exec --pwd /app --overlay "${tm_overlay_path}/dashboard_overlay.img" instance://dashboard fedn run dashboard -n reducer --init=/app/config/settings-reducer.yaml &> "${out_logs_path}/dashboard.log" &
         
+        # Deploy the api server
+        apptainer instance start  --overlay "${tm_overlay_path}/api_overlay.img" "${fedn_build_path}/fedn.sif" api-server
+        apptainer exec --pwd /app --overlay "${tm_overlay_path}/api_overlay.img" instance://api-server python fedn/fedn/network/api/server.py &> "${out_logs_path}/api_server.log" &
+    }
+
+    # Deploy combiner for model aggregation
+    deploy_fedn_combiner() {
+        apptainer instance start  --overlay "${tm_overlay_path}/combiner_overlay.img" "${fedn_build_path}/fedn.sif" combiner
+        apptainer exec --pwd /app --overlay "${tm_overlay_path}/combiner_overlay.img" instance://combiner fedn run combiner --init=/app/config/settings-combiner.yaml &> "${out_logs_path}/combiner.log" &
+    }
+
+    # Deploy FEDn client
+    deploy_fedn_clients() {
+        # Fetch local variables
+        local n_clients=$1
+        local data_split_path=$2
+
+        # Deploy specified number of clients
         for (( client_id=1; client_id<=${n_clients}; client_id++ ))
         do
-            echo "Running ${client_id}"
+            printf "[INFO]: Running client ${client_id} of ${n_clients}. \\n"
             # Create fresh overlay for this client
-            apptainer overlay create --sparse --size 1024 "${tm_overlay_path}/client_${client_id}_overlay.img"
+            apptainer overlay create --sparse --size ${overlay_size} "${tm_overlay_path}/client_${client_id}_overlay.img"
             # Start the FEDn container instance
-            apptainer instance start --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" --bind "$data_split_path/splits/$client_id":/var/data ${fedn_build_path}/fedn.sif "client_$client_id"
+            apptainer instance start --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" --bind "${data_split_path}/${client_id}":/var/data ${fedn_build_path}/fedn.sif "client_${client_id}"
             # Run the client process
-            apptainer exec --pwd /app --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" instance://"client_$client_id" fedn run client --init=/app/config/settings-client.yaml &
+            apptainer exec --pwd /app --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" instance://"client_${client_id}" fedn run client --init=/app/config/settings-client.yaml &> "${out_logs_path}/client_${client_id}.log" &
             sleep 5
         done
+    }
 
-        # Let all clients fire up, wait 30 sec before submitting train request
-        sleep 30
+    # Deploy bunch of clients TODO: figure out logic for deployment
 
-        # Initiate training process
-        apptainer exec ${fedn_build_path}/fedn.sif python ${fedn_apiclient} train --config_file="${temp_compute}/client/config.yaml"
 
-        # Collect results
-        # TODO: Add mechanism to collect train results
-
-    done
-
-else
-    #--------------------------------------------
-    # Other operations requested
-    #--------------------------------------------
-
-    # Build containers if requested
-    if [ "$build_containers" = true ]; then
-        create_containers
+    #############################################################################################################################
+    ##  Deployment logic
+    #############################################################################################################################
+    
+    # Finish current deployment if requested
+    if [ "${finish_deployment}" = true ]; then
+        apptainer instance stop --all
     fi
 
-    # Deploy containers if requested
-    if [ "$deploy_containers" = true ]; then
-        # Clean up if fresh deployment requested
-        if [ "$clean_deploy" = true ]; then
-            clean_depoly_paths
-            create_overlays
-        fi
-        # Deploy core FEDn network        
-        deploy_fedn_network
-
-        # Deploy some clients
-        # apptainer instance start  --overlay ${tm_overlay_path}/client_overlay.img --bind $client_data_path:/var/data ${fedn_build_path}/fedn.sif client
-        # apptainer exec --pwd /app --overlay ${tm_overlay_path}/client_overlay.img instance://client fedn run client --init=/app/config/settings-client.yaml &
-        # apptainer exec --pwd /app --overlay ${tm_overlay_path}/client_overlay.img --bind $client_data_path:/var/data instance://client fedn run client --init=/app/config/settings-client.yaml &
+    # Clean up if requested
+    if [ "${cleanup}" = true ]; then
+        clean_everything
     fi
-fi
 
-if [ "${finish_deployment}" = true ]; then
-    apptainer instance stop --all
+    # Build all containers if requested
+    if [ "${build_containers}" = true ]; then
+        build_all_containers
+    fi
+
+    # Clean deployment paths of requested
+    if [ "${clean_deploy}" = true ]; then
+        clean_depolyment_paths
+        create_overlays
+    fi
+
+    # Create overlays if request
+    if [ "${build_overlays}" = true ]; then
+        create_overlays
+    fi
+
+    # Deploy core modules if requested
+    if [ "${deploy_core}" = true ]; then
+        deploy_fedn_core
+    fi
+
+    # Deploy combiner if requested
+    if [ "${deploy_combiner}" = true ]; then
+        deploy_fedn_combiner
+    fi
+
+    # Deploy clients if requested
+    if [ "${deploy_clients}" = true ]; then
+        deploy_fedn_clients ${client_args[*]}
+    fi
+
+#############################################################################################################################
+##  Docker Backend
+#############################################################################################################################
+
+elif [[ "${backend}" == "DOCKER" ]]; then
+    printf "[ERROR]: DOCKER Support not yet implemented...\\n\\n"
+
 fi

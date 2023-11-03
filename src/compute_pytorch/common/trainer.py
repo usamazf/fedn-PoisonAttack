@@ -14,7 +14,7 @@ def train_model(
     ) -> None:
     """Train the model."""
     # Define loss and optimizer
-    print(f"Training {epochs} epoch(s) w/ {len(trainloader)} batches each")
+    print(f"Training {epochs} epoch(s) w/ {len(trainloader)} batches each", end="")
    
     # Train the model
     for e in range(epochs):
@@ -30,5 +30,5 @@ def train_model(
             optimizer.step()
             # Compute and print statistics
             running_loss += loss.item()
-            if b % 100 == 0:  # print every 500 mini-batches
-                print(f"Epoch {e}/{epochs-1} | Batch: {b}/{len(trainloader)-1} | Loss: {loss.item()}")
+            if b % 50 == 0:  # print every 50 mini-batches
+                print(f"Epoch {e}/{epochs-1} | Batch: {b}/{len(trainloader)-1} | Loss: {loss.item()}", end="")
