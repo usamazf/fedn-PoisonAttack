@@ -1,7 +1,7 @@
 """Helper functions to handle data loading and splitting."""
 
 import os
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import fire
 
@@ -16,17 +16,17 @@ class CustomDataset(Dataset):
     """
     def __init__(
             self, 
-            data, 
-            targets, 
+            data: Union[list, np.ndarray, torch.Tensor], 
+            targets: Union[list, np.ndarray, torch.Tensor], 
             transform: Optional[Callable] = None,
             target_transform: Optional[Callable] = None,
         ):
         """ Initialize the dataset
         
         :param data: The data samples of the desired dataset.
-        :type data: Union[list, numpy.ndarray, torch.Tensor]
+        :type data: Union[list, np.ndarray, torch.Tensor]
         :param targets: The respective labels of the provided data samples.
-        :type targets: Union[C, numpy.ndarray, torch.Tensor]
+        :type targets: Union[C, np.ndarray, torch.Tensor]
         :param transform: A function/transform that takes in an PIL image and returns a transformed version.
         :type transform: Optional[Callable]
         :param target_transform: A function/transform that takes in the target and transforms it.
@@ -140,17 +140,20 @@ def get_dataset(
         raise Exception(f"Invalid dataset {dataset_name} requested.")
 
 
-def split_dataset(out_dir: str, config_file: dict):
+def split_dataset(out_dir: str, user_configs: Union[dict, str]):
     """ Split the dataset into chunks.
 
     :param out_dir: The path where to write the splits.
     :type out_dir: str
-    :param config_file: Path of configuration file containing data configs
-    :type config_file: str
+    :param user_configs: Dictionary of configs or path to the configs file containing data configs
+    :type user_configs: Union[dict, str]
     """
 
     # Fetch user configurations
-    dataset_configs = parse_configs(config_file)["DATASET_CONFIGS"]
+    if isinstance(user_configs, str):
+        dataset_configs = parse_configs(user_configs)["DATASET_CONFIGS"]
+    else:
+        dataset_configs = user_configs
 
     # Load the requested dataset
     trainset, testset = get_dataset(

@@ -9,9 +9,14 @@ def evaluate_model(
         model,
         dataloader: torch.utils.data.DataLoader,
         device: str,
-    ) -> Tuple[float, float]:
+    ) -> dict:
     
     """Validate the model on the entire test set."""
+    # Set model to evaluation mode
+    model.eval()
+    
+    # Evaluate model with cross entropy loss
+    # TODO: upgrade to custom loss functions
     criterion = nn.CrossEntropyLoss()
     correct = 0
     total = 0
@@ -25,4 +30,9 @@ def evaluate_model(
             total += batch_y.size(0)
             correct += (predicted == batch_y).sum().item()
     accuracy = correct / total
-    return loss, accuracy
+    
+    # Return model stats on provided dataset
+    return {
+        "loss": loss, 
+        "accuracy": accuracy,
+    }

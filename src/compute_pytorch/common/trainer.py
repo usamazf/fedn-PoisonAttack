@@ -11,11 +11,16 @@ def train_model(
         learning_rate: float,
         criterion,
         optimizer,
+        verbose: bool = True,
     ) -> None:
     """Train the model."""
-    # Define loss and optimizer
-    print(f"Training {epochs} epoch(s) w/ {len(trainloader)} batches each", end="")
-   
+    # Print out a log message
+    if verbose:
+        print(f"Training {epochs} epoch(s) w/ {len(trainloader)} batches each")
+    
+    # Set model to train mode
+    model.train()
+    
     # Train the model
     for e in range(epochs):
         running_loss = 0.0
@@ -30,5 +35,5 @@ def train_model(
             optimizer.step()
             # Compute and print statistics
             running_loss += loss.item()
-            if b % 50 == 0:  # print every 50 mini-batches
-                print(f"Epoch {e}/{epochs-1} | Batch: {b}/{len(trainloader)-1} | Loss: {loss.item()}", end="")
+            if verbose and b % 50 == 0:  # print every 50 mini-batches
+                print(f"Epoch {e+1}/{epochs} | Batch: {b}/{len(trainloader)-1} | Loss: {loss.item()}")

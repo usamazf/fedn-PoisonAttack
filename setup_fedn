@@ -169,7 +169,6 @@ while [ $# -gt 0 ]; do
             # Deploy FEDn clients
             deploy_clients=true
             while [[ ! ( -z "${2}" || "${2}" == -* ) ]]; do
-                echo "Got client args ${2}"
                 client_args+=("${2}")
                 shift
             done

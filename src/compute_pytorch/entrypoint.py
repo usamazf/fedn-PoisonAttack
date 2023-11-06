@@ -1,6 +1,6 @@
 import fire
 import torch
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import DataLoader
 
 from fedn.utils.helpers import get_helper, save_metadata, save_metrics
 from model_helpers import save_model, load_model, compile_model
@@ -144,14 +144,14 @@ def validate(in_model_path, out_json_path, data_path=None, config_file="config.y
     model = model.to(local_device)
 
     # Evaluate the model for training data
-    training_loss, training_accuracy = evaluate_model(
+    train_stats = evaluate_model(
         model=model,
         dataloader=trainloader,
         device=local_device
     )
     
     # Evaluate the model for testing data
-    test_loss, test_accuracy = evaluate_model(
+    test_stats = evaluate_model(
         model=model,
         dataloader=testloader,
         device=local_device
@@ -159,10 +159,10 @@ def validate(in_model_path, out_json_path, data_path=None, config_file="config.y
     
     # JSON schema
     report = {
-        "training_loss": training_loss,
-        "training_accuracy": training_accuracy,
-        "test_loss": test_loss,
-        "test_accuracy": test_accuracy,
+        "training_loss": train_stats["loss"],
+        "training_accuracy": train_stats["accuracy"],
+        "test_loss": test_stats["loss"],
+        "test_accuracy": test_stats["accuracy"],
     }
 
     # Save JSON
