@@ -15,7 +15,7 @@ from model_helpers import compile_model
 config_base = dict({
     "MODEL_CONFIGS": {
         "MODEL_NAME": "SIMPLE-MLP",
-        "NUM_CLASSES": 10
+        "N_CLASSES": 10
     }
 })
 

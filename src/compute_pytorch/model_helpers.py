@@ -16,19 +16,19 @@ def compile_model(model_configs: dict) -> torch.nn.Module:
 
     if model_configs["MODEL_NAME"] == "SIMPLE-MLP":
         from models.simple_mlp import Net
-        return Net(num_classes = model_configs["NUM_CLASSES"])
+        return Net(num_classes = model_configs["N_CLASSES"])
     elif model_configs["MODEL_NAME"] == "SIMPLE-CNN":
         from models.simple_cnn import Net
-        return Net(num_classes = model_configs["NUM_CLASSES"])
+        return Net(num_classes = model_configs["N_CLASSES"])
     elif model_configs["MODEL_NAME"] == "LENET-1CH":
         from models.lenet_1ch import Net
-        return Net(num_classes = model_configs["NUM_CLASSES"])
+        return Net(num_classes = model_configs["N_CLASSES"])
     elif model_configs["MODEL_NAME"] == "LENET-3CH":
         from models.lenet_3ch import Net
-        return Net(num_classes = model_configs["NUM_CLASSES"])
+        return Net(num_classes = model_configs["N_CLASSES"])
     elif model_configs["MODEL_NAME"] == "RESNET-18":
         from models.resnet18 import Net
-        return Net(num_classes = model_configs["NUM_CLASSES"])
+        return Net(num_classes = model_configs["N_CLASSES"])
     else:
         raise Exception(f"Invalid model {model_configs['MODEL_NAME']} requested.")
 

@@ -28,7 +28,7 @@ config_base = dict({
     },
     "MODEL_CONFIGS": {
         "MODEL_NAME": "LENET-1CH",
-        "NUM_CLASSES": 10
+        "N_CLASSES": 10
     },
     "CLIENT_CONFIGS": {
         "RUN_DEVICE": "auto",

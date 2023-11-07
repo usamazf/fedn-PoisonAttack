@@ -51,7 +51,8 @@ backend="APPTAINER"
 
 # Core paths of fedn library and configurations
 fedn_lib_path="modules/fedn"
-fedn_configs="config/fedn_config"
+fedn_configs_apptainer="config/fedn_config/apptainer"
+fedn_configs_docker="config/fedn_config/docker"
 apptainer_defs="containers"
 
 # Secondary paths to hold container data
@@ -197,7 +198,7 @@ tm_overlay_path="${fedn_data_path}/overalys"
 
 # Make all global variables readonly
 readonly build_containers clean_deploy cleanup finish_deployment backend apptainer_defs 
-readonly fedn_lib_path fedn_configs fedn_data_path out_logs_path fedn_build_path 
+readonly fedn_lib_path fedn_configs_apptainer fedn_data_path out_logs_path fedn_build_path 
 
 #############################################################################################################################
 ##  Apptainer Backend
@@ -229,7 +230,7 @@ if [[ "${backend}" == "APPTAINER" ]]; then
     # Build service fedn containers
     build_core_containers() {
         printf "[INFO]: Building core FEDn containers... \\n"
-        apptainer build --build-arg FEDN_PATH="${fedn_lib_path}" --build-arg CONF_PATH="${fedn_configs}" "${fedn_build_path}/fedn.sif" "${apptainer_defs}/fedn.def"
+        apptainer build --build-arg FEDN_PATH="${fedn_lib_path}" --build-arg CONF_PATH="${fedn_configs_apptainer}" "${fedn_build_path}/fedn.sif" "${apptainer_defs}/fedn.def"
     }
 
     # Build all fedn containers using apptainer
@@ -296,7 +297,7 @@ if [[ "${backend}" == "APPTAINER" ]]; then
             printf "[INFO]: Running client ${client_id} of ${n_clients}. \\n"
             # Need to setup configs file for all clients
             mkdir --parent "temp/client_configs_temp/${client_id}"
-            cp "${fedn_configs}/settings-client.yaml.template" "temp/client_configs_temp/${client_id}/settings-client.yaml"
+            cp "${fedn_configs_apptainer}/settings-client.yaml.template" "temp/client_configs_temp/${client_id}/settings-client.yaml"
             echo "name: client_${client_id}" >> "temp/client_configs_temp/${client_id}/settings-client.yaml"
             # Create fresh overlay for this client
             apptainer overlay create --sparse --size ${overlay_size} "${tm_overlay_path}/client_${client_id}_overlay.img"

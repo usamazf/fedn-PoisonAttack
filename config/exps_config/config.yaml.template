@@ -1,4 +1,5 @@
 SERVER_CONFIGS:
+    N_REQ_CLIENTS: 2
     N_TRAIN_ROUND: 20
     ROUND_TIMEOUT: 250
 
@@ -6,7 +7,7 @@ CLIENT_CONFIGS:
     RUN_DEVICE: cpu                 # Options: [auto, cpu, cuda]
     LOCAL_EPCH: 1
     BATCH_SIZE: 32
-    LEARN_RATE: 1e-4
+    LEARN_RATE: 0.0001
     OPTIMIZER: ADAM                 # Options: [ADAM, SGD]
     CRITERION: CROSSENTROPY         # Options: [CROSSENTROPY, NLLL]
 
@@ -20,4 +21,4 @@ DATASET_CONFIGS:
 
 MODEL_CONFIGS:
     MODEL_NAME: LENET-1CH          # Options: [SIMPLE-MLP, SIMPLE-CNN]
-    NUM_CLASSES: 10
+    N_CLASSES: 10

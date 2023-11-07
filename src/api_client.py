@@ -46,10 +46,12 @@ def submit_train_request(config_file, host="localhost", port=8092, helper="pytor
     while not status:
         # Deploy a training round with random session id
         status = client.start_session(
-            session_id=session_id, #f"session_{int(10000000 * random.random())}", 
+            session_id=session_id,
             helper=helper,
             rounds=exp_configs["SERVER_CONFIGS"]["N_TRAIN_ROUND"],
-            round_timeout=exp_configs["SERVER_CONFIGS"]["ROUND_TIMEOUT"]
+            round_timeout=exp_configs["SERVER_CONFIGS"]["ROUND_TIMEOUT"],
+            min_clients=exp_configs["SERVER_CONFIGS"]["N_REQ_CLIENTS"],
+            requested_clients=exp_configs["SERVER_CONFIGS"]["N_REQ_CLIENTS"],
         )['success']
 
         # Wait before few seconds before generating new request

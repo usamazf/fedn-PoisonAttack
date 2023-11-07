@@ -139,7 +139,7 @@ do
     cp "${f}" "${temp_compute}/client/config.yaml"
 
     # Fetch and split data
-    apptainer exec "${fedn_build_path}/fedn.sif" python "src/compute_pytorch/data_helpers.py" split_data --out_dir="${data_split_path}" --config_file="${temp_compute}/client/config.yaml"
+    apptainer exec "${fedn_build_path}/fedn.sif" python "src/compute_pytorch/data_helpers.py" split_data --out_dir="${data_split_path}" --user_configs="${temp_compute}/client/config.yaml"
 
     # Prepare compute package
     tar -C "${temp_compute}/" -czvf "${comp_out_path}" --exclude "__pycache__" client
