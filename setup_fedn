@@ -397,12 +397,12 @@ elif [[ "${backend}" == "DOCKER" ]]; then
     #     build_core_containers
     # }
 
-    # Clean up the output paths for fresh deployment
-    # clean_depolyment_paths() {
-    #     printf "[INFO]: Cleaning up deployment paths... \\n"
-    #     rm --recursive --force -- "${minio_data_path}" "${mongo_data_path}" "${mexpr_data_path}" "${tm_overlay_path}" "${out_logs_path}"
-    #     mkdir --parents "${minio_data_path}" "${mongo_data_path}" "${mongo_data_path}/db" "${mexpr_data_path}" "${tm_overlay_path}" "${out_logs_path}"
-    # }
+    # Create clean output paths for fresh deployment
+    setup_output_paths_docker() {
+        printf "[INFO]: Cleaning up output paths... \\n"
+        rm --recursive --force -- "${out_logs_path}"
+        mkdir --parents "${out_logs_path}"
+    }
 
     # Clean up everything, even build, let's not??
     # clean_everything() {
@@ -413,15 +413,7 @@ elif [[ "${backend}" == "DOCKER" ]]; then
     # Deploy core fedn services
     deploy_fedn_core_docker() {
         # Deploy common fedn services like mongodb, mongo-express, minio etc.
-        sudo docker-compose up minio         &> "${out_logs_path}/minio.log"
-        sudo docker-compose up mongo         &> "${out_logs_path}/mongo.log"
-        sudo docker-compose up mongo-express &> "${out_logs_path}/mongo_express.log"
-        
-        # Deploy a reducer to act as dashboard
-        sudo docker-compose up dashboard &> "${out_logs_path}/dashboard.log" &
-        
-        # Deploy the api server
-        sudo docker-compose up api-server &> "${out_logs_path}/api_server.log" &
+        sudo docker-compose up minio mongo mongo-express dashboard api-server &> "${out_logs_path}/core.log" &
     }
 
     # Deploy combiner for model aggregation
@@ -430,35 +422,20 @@ elif [[ "${backend}" == "DOCKER" ]]; then
     }
 
     # Deploy FEDn client
-    # deploy_fedn_clients_docker() {
-    #     # Fetch local variables
-    #     local n_clients=$1
-    #     local data_split_path=$2
+    deploy_fedn_clients_docker() {
+        # Fetch local variables
+        local n_clients=$1
+        local data_split_path=$2
         
-    #     # Deploy specified number of clients
-    #     for (( client_id=1; client_id<=${n_clients}; client_id++ ))
-    #     do
-    #         printf "[INFO]: Running client ${client_id} of ${n_clients}. \\n"
-            # docker run \
-            # -v $PWD/client.yaml:/app/client.yaml \
-            # -v $PWD/data/clients/1:/var/data \
-            # -e ENTRYPOINT_OPTS=--data_path=/var/data/mnist.pt \
-            # --network=fedn_default \
-            # ghcr.io/scaleoutsystems/fedn/fedn:master-mnist-pytorch run client -in client.yaml --name client1
-    
-    #         # Need to setup configs file for all clients
-    #         mkdir --parent "temp/client_configs_temp/${client_id}"
-    #         cp "${fedn_configs_apptainer}/settings-client.yaml.template" "temp/client_configs_temp/${client_id}/settings-client.yaml"
-    #         echo "name: client_${client_id}" >> "temp/client_configs_temp/${client_id}/settings-client.yaml"
-    #         # Create fresh overlay for this client
-    #         apptainer overlay create --sparse --size ${overlay_size} "${tm_overlay_path}/client_${client_id}_overlay.img"
-    #         # Start the FEDn container instance
-    #         apptainer instance start --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" --bind "${data_split_path}/${client_id}":/var/data,"temp/client_configs_temp/${client_id}":/client_configs ${fedn_build_path}/fedn.sif "client_${client_id}"
-    #         # Run the client process
-    #         apptainer exec --pwd /app --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" instance://"client_${client_id}" fedn run client --init=/client_configs/settings-client.yaml &> "${out_logs_path}/client_${client_id}.log" &
-    #         sleep 5
-    #     done
-    # }
+        # Deploy specified number of clients
+        for (( client_id=1; client_id<=${n_clients}; client_id++ ))
+        do  
+            mkdir --parent "temp/client_override/${client_id}"
+            cp "${fedn_configs_docker}/docker-compose.client_override.yaml.template" "temp/client_override/${client_id}/docker-compose.override.yaml"
+            echo "      - ${data_split_path}/${client_id}:/var/data" >> "temp/client_override/${client_id}/docker-compose.override.yaml"
+            sudo docker-compose -f docker-compose.yaml -f "temp/client_override/${client_id}/docker-compose.override.yaml" up client
+        done
+    }
 
     #############################################################################################################################
     ##  Deployment logic
@@ -479,14 +456,14 @@ elif [[ "${backend}" == "DOCKER" ]]; then
     #     build_all_containers
     # fi
 
-    # # Clean deployment paths of requested
+    # Clean deployment paths of requested
     # if [ "${clean_deploy}" = true ]; then
-    #     clean_depolyment_paths
-    #     create_overlays
+        
     # fi
 
     # Deploy core modules if requested
     if [ "${deploy_core}" = true ]; then
+        setup_output_paths_docker
         deploy_fedn_core_docker
     fi
 
