@@ -114,59 +114,62 @@ readonly comp_pack_path fedn_apiclient temp_compute comp_out_path seed_path
 ##  Experiment deployment
 #############################################################################################################################
 
-# [Re]-Build containers if requested
-if [ "${build_containers}" = true ]; then
-    ./setup_fedn --backend "${backend}" --build --build-path "${fedn_build_path}"
-    #create_overlays
-fi
-
-
-for f in ${exps_configs}
-do  
-    printf "[INFO]: Running experiment with ${f} config file. \\n"
-    
-    # Clean up deployment path from previous experiment
-    ./setup_fedn --backend "${backend}" --clean-deploy
-
-    # Create directory to temporarily hold compute package
-    if [[ -d "${temp_compute}" ]]; then
-        rm --recursive --force "${temp_compute}"
+if [[ "${backend}" == "APPTAINER" ]]; then
+    # [Re]-Build containers if requested
+    if [ "${build_containers}" = true ]; then
+        ./setup_fedn --backend "${backend}" --build --build-path "${fedn_build_path}"
     fi
-    mkdir --parents "${temp_compute}"
-    
-    # Prepare the compute package at temp location
-    cp --recursive "${comp_pack_path}" "${temp_compute}/client"
-    cp "${f}" "${temp_compute}/client/config.yaml"
 
-    # Fetch and split data
-    apptainer exec "${fedn_build_path}/fedn.sif" python "src/compute_pytorch/data_helpers.py" split_data --out_dir="${data_split_path}" --user_configs="${temp_compute}/client/config.yaml"
+    for f in ${exps_configs}
+    do  
+        printf "[INFO]: Running experiment with ${f} config file. \\n"
+        
+        # Clean up deployment path from previous experiment
+        ./setup_fedn --backend "${backend}" --clean-deploy
 
-    # Prepare compute package
-    tar -C "${temp_compute}/" -czvf "${comp_out_path}" --exclude "__pycache__" client
+        # Create directory to temporarily hold compute package
+        if [[ -d "${temp_compute}" ]]; then
+            rm --recursive --force "${temp_compute}"
+        fi
+        mkdir --parents "${temp_compute}"
+        
+        # Prepare the compute package at temp location
+        cp --recursive "${comp_pack_path}" "${temp_compute}/client"
+        cp "${f}" "${temp_compute}/client/config.yaml"
 
-    # Get initial / seed model
-    apptainer exec "${fedn_build_path}/fedn.sif" python "${temp_compute}/client/entrypoint.py" init_seed --out_path="${seed_path}" --config_file="${temp_compute}/client/config.yaml"
+        # Fetch and split data
+        apptainer exec "${fedn_build_path}/fedn.sif" python "src/compute_pytorch/data_helpers.py" split_data --out_dir="${data_split_path}" --user_configs="${temp_compute}/client/config.yaml"
 
-    # Deploy FEDn core services
-    ./setup_fedn --backend "${backend}" --deploy-core
+        # Prepare compute package
+        tar -C "${temp_compute}/" -czvf "${comp_out_path}" --exclude "__pycache__" client
 
-    # Deploy FEDn combiner service
-    ./setup_fedn --backend "${backend}" --deploy-combiner
+        # Get initial / seed model
+        apptainer exec "${fedn_build_path}/fedn.sif" python "${temp_compute}/client/entrypoint.py" init_seed --out_path="${seed_path}" --config_file="${temp_compute}/client/config.yaml"
 
-    # Submit the compute package and seed model
-    apptainer exec "${fedn_build_path}/fedn.sif" python "${fedn_apiclient}" submit --package="${comp_out_path}" --init_model="${seed_path}"
+        # Deploy FEDn core services
+        ./setup_fedn --backend "${backend}" --deploy-core
 
-    # Initiate client containers and map data splits
-    n_clients=$(awk '/N_DATA_SPLIT/ {print $2}' "${temp_compute}/client/config.yaml")
-    ./setup_fedn --backend "${backend}" --deploy-clients "${n_clients}" "${data_split_path}/splits"
+        # Deploy FEDn combiner service
+        ./setup_fedn --backend "${backend}" --deploy-combiner
 
-    # Let all clients fire up, wait 30 sec before submitting train request
-    sleep 30
+        # Submit the compute package and seed model
+        apptainer exec "${fedn_build_path}/fedn.sif" python "${fedn_apiclient}" submit --package="${comp_out_path}" --init_model="${seed_path}"
 
-    # Initiate training process
-    apptainer exec ${fedn_build_path}/fedn.sif python ${fedn_apiclient} train --config_file="${temp_compute}/client/config.yaml"
+        # Initiate client containers and map data splits
+        n_clients=$(awk '/N_DATA_SPLIT/ {print $2}' "${temp_compute}/client/config.yaml")
+        ./setup_fedn --backend "${backend}" --deploy-clients "${n_clients}" "${data_split_path}/splits"
 
-    # Collect results
-    # TODO: Add mechanism to collect train results
+        # Let all clients fire up, wait 30 sec before submitting train request
+        sleep 30
 
-done
+        # Initiate training process
+        apptainer exec ${fedn_build_path}/fedn.sif python ${fedn_apiclient} train --config_file="${temp_compute}/client/config.yaml"
+
+        # Collect results
+        # TODO: Add mechanism to collect train results
+
+    done
+
+elif [[ "${backend}" == "DOCKER" ]]; then
+
+fi

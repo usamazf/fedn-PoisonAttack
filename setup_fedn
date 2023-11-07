@@ -309,9 +309,6 @@ if [[ "${backend}" == "APPTAINER" ]]; then
         done
     }
 
-    # Deploy bunch of clients TODO: figure out logic for deployment
-
-
     #############################################################################################################################
     ##  Deployment logic
     #############################################################################################################################
@@ -362,6 +359,144 @@ if [[ "${backend}" == "APPTAINER" ]]; then
 #############################################################################################################################
 
 elif [[ "${backend}" == "DOCKER" ]]; then
-    printf "[ERROR]: DOCKER Support not yet implemented...\\n\\n"
+    
+    #########################################################################################################################
+    ##  Helper functions
+    #########################################################################################################################
 
+    # Clean up the build paths for fresh build
+    # clean_build_paths() {
+    #     printf "[INFO]: Cleaning up build path... \\n"
+    #     # prepare build directory
+    #     if test -d "${fedn_build_path}"; then
+    #         rm --recursive --force "${fedn_build_path}"
+    #     fi
+    #     mkdir --parents "${fedn_build_path}"
+    # }
+
+    # Build service fedn containers
+    # build_service_containers() {
+    #     printf "[INFO]: Building service containers... \\n"
+    #     apptainer build "${fedn_build_path}/fedn_minio.sif" "${apptainer_defs}/fedn_minio.def"
+    #     apptainer build "${fedn_build_path}/fedn_mongo.sif" "${apptainer_defs}/fedn_mongo.def"
+    #     apptainer build "${fedn_build_path}/fedn_mongo-express.sif" "${apptainer_defs}/fedn_mongo-express.def"
+    # }
+    
+    # Build service fedn containers
+    # build_core_containers() {
+    #     printf "[INFO]: Building core FEDn containers... \\n"
+    #     apptainer build --build-arg FEDN_PATH="${fedn_lib_path}" --build-arg CONF_PATH="${fedn_configs_apptainer}" "${fedn_build_path}/fedn.sif" "${apptainer_defs}/fedn.def"
+    # }
+
+    # Build all fedn containers using apptainer
+    # build_all_containers() {
+    #     clean_build_paths
+    #     # Build containers
+    #     printf "[INFO]: Buidling all containers... \\n"
+    #     build_service_containers
+    #     build_core_containers
+    # }
+
+    # Clean up the output paths for fresh deployment
+    # clean_depolyment_paths() {
+    #     printf "[INFO]: Cleaning up deployment paths... \\n"
+    #     rm --recursive --force -- "${minio_data_path}" "${mongo_data_path}" "${mexpr_data_path}" "${tm_overlay_path}" "${out_logs_path}"
+    #     mkdir --parents "${minio_data_path}" "${mongo_data_path}" "${mongo_data_path}/db" "${mexpr_data_path}" "${tm_overlay_path}" "${out_logs_path}"
+    # }
+
+    # Clean up everything, even build, let's not??
+    # clean_everything() {
+    #     printf "[INFO]: Cleaning up everything... \\n"
+    #     rm --recursive --force -- "${fedn_data_path}" "${tm_overlay_path}" "${out_logs_path}"
+    # }
+
+    # Deploy core fedn services
+    deploy_fedn_core_docker() {
+        # Deploy common fedn services like mongodb, mongo-express, minio etc.
+        sudo docker-compose up minio         &> "${out_logs_path}/minio.log"
+        sudo docker-compose up mongo         &> "${out_logs_path}/mongo.log"
+        sudo docker-compose up mongo-express &> "${out_logs_path}/mongo_express.log"
+        
+        # Deploy a reducer to act as dashboard
+        sudo docker-compose up dashboard &> "${out_logs_path}/dashboard.log" &
+        
+        # Deploy the api server
+        sudo docker-compose up api-server &> "${out_logs_path}/api_server.log" &
+    }
+
+    # Deploy combiner for model aggregation
+    deploy_fedn_combiner_docker() {
+        sudo docker-compose up combiner  &> "${out_logs_path}/combiner.log" &
+    }
+
+    # Deploy FEDn client
+    # deploy_fedn_clients_docker() {
+    #     # Fetch local variables
+    #     local n_clients=$1
+    #     local data_split_path=$2
+        
+    #     # Deploy specified number of clients
+    #     for (( client_id=1; client_id<=${n_clients}; client_id++ ))
+    #     do
+    #         printf "[INFO]: Running client ${client_id} of ${n_clients}. \\n"
+            # docker run \
+            # -v $PWD/client.yaml:/app/client.yaml \
+            # -v $PWD/data/clients/1:/var/data \
+            # -e ENTRYPOINT_OPTS=--data_path=/var/data/mnist.pt \
+            # --network=fedn_default \
+            # ghcr.io/scaleoutsystems/fedn/fedn:master-mnist-pytorch run client -in client.yaml --name client1
+    
+    #         # Need to setup configs file for all clients
+    #         mkdir --parent "temp/client_configs_temp/${client_id}"
+    #         cp "${fedn_configs_apptainer}/settings-client.yaml.template" "temp/client_configs_temp/${client_id}/settings-client.yaml"
+    #         echo "name: client_${client_id}" >> "temp/client_configs_temp/${client_id}/settings-client.yaml"
+    #         # Create fresh overlay for this client
+    #         apptainer overlay create --sparse --size ${overlay_size} "${tm_overlay_path}/client_${client_id}_overlay.img"
+    #         # Start the FEDn container instance
+    #         apptainer instance start --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" --bind "${data_split_path}/${client_id}":/var/data,"temp/client_configs_temp/${client_id}":/client_configs ${fedn_build_path}/fedn.sif "client_${client_id}"
+    #         # Run the client process
+    #         apptainer exec --pwd /app --overlay "${tm_overlay_path}/client_${client_id}_overlay.img" instance://"client_${client_id}" fedn run client --init=/client_configs/settings-client.yaml &> "${out_logs_path}/client_${client_id}.log" &
+    #         sleep 5
+    #     done
+    # }
+
+    #############################################################################################################################
+    ##  Deployment logic
+    #############################################################################################################################
+    
+    # Finish current deployment if requested
+    if [ "${finish_deployment}" = true ]; then
+        sudo docker-compose down
+    fi
+
+    # # Clean up if requested
+    # if [ "${cleanup}" = true ]; then
+    #     clean_everything
+    # fi
+
+    # # Build all containers if requested
+    # if [ "${build_containers}" = true ]; then
+    #     build_all_containers
+    # fi
+
+    # # Clean deployment paths of requested
+    # if [ "${clean_deploy}" = true ]; then
+    #     clean_depolyment_paths
+    #     create_overlays
+    # fi
+
+    # Deploy core modules if requested
+    if [ "${deploy_core}" = true ]; then
+        deploy_fedn_core_docker
+    fi
+
+    # Deploy combiner if requested
+    if [ "${deploy_combiner}" = true ]; then
+        deploy_fedn_combiner_docker
+    fi
+
+    # Deploy clients if requested
+    if [ "${deploy_clients}" = true ]; then
+        deploy_fedn_clients_docker ${client_args[*]}
+    fi
 fi

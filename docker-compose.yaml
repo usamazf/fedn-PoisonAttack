@@ -59,6 +59,7 @@ services:
       - 8081:8081
 
   dashboard:
+    image: fedn_dashboard
     environment:
       - GET_HOSTS_FROM=dns
       - USER=test
@@ -79,6 +80,7 @@ services:
       - 8090:8090
 
   api-server:
+    image: fedn_api-server
     environment:
       - GET_HOSTS_FROM=dns
       - USER=test
@@ -104,6 +106,7 @@ services:
 
   # Combiner
   combiner:
+    image: fedn_combiner
     environment:
       - PYTHONUNBUFFERED=0
       - GET_HOSTS_FROM=dns
@@ -122,6 +125,7 @@ services:
 
   # Client
   client:
+    image: fedn_client
     environment:
       - GET_HOSTS_FROM=dns
     build:
